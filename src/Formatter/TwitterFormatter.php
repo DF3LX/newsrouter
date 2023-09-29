@@ -226,16 +226,15 @@ class TwitterFormatter extends FormatterBase
         if ($message == null)
             return 0;
 
-        $meldung = new \DOMDocument();
-        $meldung->loadHTML('<?xml encoding="utf-8" ?>' . mb_convert_encoding($message->getText(), 'HTML-ENTITIES', 'UTF-8'));
-
-        // Das eingebettete HTML in dem RSS Feed ist gruselig, also erstmal ein wenig aufräumen
-        $MeldungText = trim($message->getTitel()) . ": " . trim(str_replace("\n ", "\n", preg_replace('/(\t+)|(\ )+/', ' ', $meldung->textContent)));
+        // Auf Twitter wird die nachricht als Titel: Meldung dargestellt.
+        // Wir verwenden PlainText
+        $MeldungText = trim($message->getTitel()) . ": " . trim(str_replace("\n ", "\n", preg_replace('/(\t+)|(\ )+/', ' ', $message->getTextAsText())));
 
         $MeldungText = $this->processErsetzen($MeldungText);
         $MeldungText = $this->processHashtags($MeldungText);
 
-        $message->setTitel("") // Twitter hat keinen Title
+        $message
+            ->setTitel("") // Twitter hat keinen Title
             ->setTeaser("") // Twitter hat keinen Teaser
             ->setText($MeldungText)
             ->setMetadata(self::PRAM_MENTIONS, $this->processMentions($MeldungText)

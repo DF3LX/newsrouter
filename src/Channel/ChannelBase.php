@@ -23,7 +23,9 @@ abstract class ChannelBase extends ModuleBase
     {
         global $pdo;
         // Join zwischen OutputMessage und OutputMessageData um vollständigen Datensatz zu ehalten
-        $statement = $pdo->prepare("SELECT OM.*, OMD.Titel, OMD.Teaser, OMD.Text, OMD.PermaLink, OMD.Image, OMD.Metadata, IM.sourceid FROM OutputMessage OM INNER JOIN OutputMessageData OMD on OM.ID = OMD.ID INNER JOIN InputMessage IM on OM.InputMessageId = IM.ID WHERE ChannelId = :channelid and  OM.State = " . MessageState::Neu);
+        $statement = $pdo->prepare("SELECT OM.*, OMD.Titel, OMD.Teaser, OMD.Text, OMD.PermaLink, OMD.Image, OMD.Metadata, IM.sourceid FROM OutputMessage OM " 
+        . " INNER JOIN OutputMessageData OMD on OM.ID = OMD.ID INNER JOIN InputMessage IM on OM.InputMessageId = IM.ID "
+        . " WHERE ChannelId = :channelid and  OM.State = " . MessageState::Neu . " ORDER BY OM.ID, Sequence");
         $statement->bindValue(":channelid", $this->getId());
         $statement->execute();
         $result = $statement->fetch(\PDO::FETCH_ASSOC);

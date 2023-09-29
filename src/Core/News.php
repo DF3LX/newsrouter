@@ -199,6 +199,34 @@ class News
         return $this->text;
     }
 
+    public function getTextAsText() : string
+    {
+        $dom = new \DOMDocument();
+        $dom->loadHTML($this->text);
+
+        return $dom->textContent;
+    }
+
+    public function getTextAsHTML() : string
+    {
+        $dom = $this->getTextasDOM();
+        $xp = new \DOMXPath($dom);
+
+        $body = $xp->query("//body")[0]; // Uns interessiert nur das html ab Body. Da es kein "innerHTML" gibt, müssen wir alle childs einzeln speichern
+        $html = ""; // init für append
+        foreach ($body->childNodes as $child)
+            $body .= $dom->saveHTML($child);
+
+        return $html;
+    }
+
+    public function getTextasDOM(): \DOMDocument
+    {
+        $dom = new \DOMDocument();
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $this->text);
+
+        return $dom;
+    }
     /**
      * @param string $Text 
      * @return self

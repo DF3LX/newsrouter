@@ -122,7 +122,7 @@ abstract class FormatterBase extends ModuleBase
     public function setParameter(string $Parameter, mixed $Value): int
     {
         global $pdo;
-
+        
         if (substr(strtolower($Parameter), 0, 2) == "ch") // Channel
         {
             // Lookup der ID anhand des Namens
