@@ -1,6 +1,8 @@
 <?php
 
 namespace DARCNews\Channel;
+use DARCNews\Core\ErrorCodes;
+use DARCNews\Core\Logger;
 
 /**
  * Summary of MatrixChannel
@@ -34,6 +36,40 @@ class MatrixChannel extends ChannelBase
      */
     protected /*abstractImpl*/function doStuff(): int
     {
-        return 0;
+        $message = $this->getUnprocessedMessage();
+        $text = gettext();
+        $msgtype = "m.text";
+        $homeserver = "matrix.org";
+        $room = "!QcJtRjnvlChOaNGOkc:matrix.org";
+        $accesstoken = "syt_ZnAtbWFpbA_AMgaqjtFDRcaSBspIiRU_06kNqF";
+
+        if ($message == null)
+            return 0; // 0 Nachrichten verarbeitet
+
+        Logger::Info("Channel {$this->getName()} verarbeitet Nachricht {$message->getId()}");
+        if ($this->isCatchUp()) // bei Catchup machen wir mit der Nachricht einfach mal nix
+        {
+            $this->setMessageProcessed($message, true, null);
+            return 1; // eine Nachricht "verarbeitet"
+        }
+
+
+        try
+        {
+            $message->setUniqueId(shell_exec(echo "$text" | curl -XPOST -d "$( jq -Rsc --arg msgtype "$matrixmsg_type" '{$msgtype, body:.}')" "https://$homeserver/_matrix/client/r0/rooms/$room/send/m.room.message?access_token=$accesstoken"));
+
+            $this->setMessageProcessed($message, true, null);
+
+            return 1; // eine Nachricht verarbeitet
+        }
+        catch (\Exception $ex)
+        {
+            $this->setMessageProcessed($message, false, null);
+            Logger::Error("Fehler beim Versand von Nachricht {$message->getId()} über Channel {$this->getId()}\n");
+            Logger::Error($ex->getMessage());
+
+            return ErrorCodes::Operation_Failed;
+        }
+
     }
 }
