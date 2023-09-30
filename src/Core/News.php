@@ -132,7 +132,7 @@ class News
     /**
      * @return string
      */
-    public function getUniqueId(): string
+    public function getUniqueId(): ?string
     {
         return $this->uniqueid;
     }
