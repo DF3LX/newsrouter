@@ -124,6 +124,12 @@ class FunkWxFormatter extends FormatterBase
                 $text = substr($text, 0, $zczc) . substr($text, $nnnn + 4);
             }
         }
+       
+        // Wenn beide Texte behalten werden, Zeilenumbruch einfügen
+        if (($this->getParameter(self::PARAM_KEEPTEXT) == "1") && ($this->getParameter(self::PARAM_KEEPQAM) == "1"))
+        {
+            $text = str_replace("ZCZC", "\n\nZCZC", $text);
+        }
 
         $text = trim($text);
 
