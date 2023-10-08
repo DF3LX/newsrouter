@@ -1,6 +1,7 @@
 <?php
 
 namespace DARCNews\Channel;
+use DARCNews\Core\ErrorCodes;
 use DARCNews\Core\Logger;
 
 /**
@@ -12,7 +13,7 @@ use DARCNews\Core\Logger;
  */
 class TelegramChannel extends ChannelBase
 {
-        /** @var string PARAM_TOKEN  Konstante für Zugriff auf Parameters-Array */
+    /** @var string PARAM_TOKEN  Konstante für Zugriff auf Parameters-Array */
     private const PARAM_TOKEN = 'Token';
 
     /** @var string PARAM_BOTUSERNAME  Konstante für Zugriff auf Parameters-Array */
@@ -21,7 +22,7 @@ class TelegramChannel extends ChannelBase
     /** @var string PARAM_CHATID  Konstante für Zugriff auf Parameters-Array */
     private const PARAM_CHATID = 'ChatId';
 
-   /** @var array $parameters Array mit den Modulspezifischen Parametern */
+    /** @var array $parameters Array mit den Modulspezifischen Parametern */
     protected array $parameters = [
         self::PARAM_TOKEN => [
             'Description' => "Der Bot-Token, wie er vom Botfather ausgegeben wurde",
@@ -87,25 +88,23 @@ class TelegramChannel extends ChannelBase
                         [
                             'chat_id' => intval($this->getParameter(self::PARAM_CHATID)),
                             'parse_mode' => 'HTML',
-                            'text' => mb_convert_encoding(
+                            'text' =>
                                 "<b>" . $message->getTitel() . "</b>\n"
                                 . "<i>" . $message->getTeaser() . "</i>\n"
                                 . $message->getText()
-                                , "ISO-8859-1", "UTF-8") // Telegram API mag kein JSON-Codiertes UTF8 
                         ]
                     )
                 )
             );
 
             $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
-            var_dump($resultText);
 
             if ($resultText === false)
             {
                 throw new \ErrorException("Fehler beim Aufruf der Telegram-API: {$http_response_header[0]}");
             }
 
-            //            Logger::Debug($resultText);
+            //Logger::Debug($resultText);
             $result = json_decode($resultText, true); // decode JSON
             $uniqueId = $result['result']['message_id'];
             $this->setMessageProcessed($message, true, $uniqueId);
@@ -115,7 +114,7 @@ class TelegramChannel extends ChannelBase
         catch (\Exception $ex)
         {
             $this->setMessageProcessed($message, false, null);
-            Logger::Error("Fehler beim Versand von Nachricht {$message->getId()} über Channel {$this->getId()}\n");
+            Logger::Error(static::class . " ({$this->getName()}): Fehler beim Versand von Nachricht {$message->getId()} über Channel {$this->getId()}\n");
             Logger::Error($ex->getMessage());
 
             return ErrorCodes::Operation_Failed;

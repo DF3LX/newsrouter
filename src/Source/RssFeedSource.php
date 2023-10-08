@@ -84,11 +84,11 @@ class RssFeedSource extends SourceBase
 
         if (!($feedDate > $lastPubDate))
         {
-            Logger::Info("Feed Date ist nicht neuer als beim letzten Mal");
-            //     return 0; // 0 neue Nachrichten
+            Logger::Info(static::class . " ({$this->getName()}): Feed Date ist nicht neuer als beim letzten Mal");
+                return 0; // 0 neue Nachrichten
         }
 
-        Logger::Info("Feed ist neu");
+        Logger::Info(static::class . " ({$this->getName()}): Feed ist neu");
 
         $this->setParameter(self::PARAM_LASTPUBDATE, $feedDate->getTimestamp()); // set last pub date and Save
 
@@ -111,18 +111,18 @@ class RssFeedSource extends SourceBase
 
         foreach ($items as $item)
         {
-            Logger::Info("Verarbeite ein Item");
+            Logger::Debug("Verarbeite ein Item");
             $pubDate = \DateTime::createFromFormat(\DateTime::RFC1123, $item->pubDate);
 
             if (($checkDate->getTimestamp() - $pubDate->getTimestamp()) < $this->getParameter(self::PARAM_PUBLISHWAITSEC))
             {
-                Logger::Info("Newsmeldung {$item->guid} ist noch keine 10 Minuten alt.\n");
+                Logger::Info(static::class . " ({$this->getName()}): Newsmeldung {$item->guid} ist noch keine 10 Minuten alt.\n");
                 continue; // Skip Items die noch keine 10 Minuten alt sind.
             }
 
             if ($this->isMessageKnown($item->guid))
             {
-                Logger::Info("Newsmeldung {$item->guid} ist bereits abgespeichert");
+                Logger::Info(static::class . " ({$this->getName()}): Newsmeldung {$item->guid} ist bereits abgespeichert");
                 continue;
             }
 
@@ -155,7 +155,7 @@ class RssFeedSource extends SourceBase
             $imageStream = null; // declare variable
             if (filter_var($imageUrl, FILTER_VALIDATE_URL))
             {
-                Logger::Info("Teaserbild in Meldung {$item->guid} gefunden. Versuche Download von {$imageUrl}");
+                Logger::Info(static::class . " ({$this->getName()}): Teaserbild in Meldung {$item->guid} gefunden. Versuche Download von {$imageUrl}");
                 $imageStream = file_get_contents($imageUrl);
                 Logger::Debug("Länge vom Image " . strlen($imageStream));
             }
@@ -175,7 +175,7 @@ class RssFeedSource extends SourceBase
 
             if ($result == ErrorCodes::AlreadyExists)
             {
-                Logger::Error("Die Nachricht {$item->guid} ist bereits vorhanden\n");
+                Logger::Error(static::class . " ({$this->getName()}): Die Nachricht {$item->guid} ist bereits vorhanden\n");
                 continue;
             }
             $itemCount++;

@@ -3,6 +3,7 @@
 namespace DARCNews\Formatter;
 use DARCNews\Core\ByState;
 use DARCNews\Core\ErrorCodes;
+use DARCNews\Core\Logger;
 use DARCNews\Core\ModuleBase;
 use DARCNews\Core\News;
 
@@ -50,7 +51,7 @@ abstract class FormatterBase extends ModuleBase
      */
     protected /*abstractImpl*/ function canEnable(): bool
     {
-        return ($this->_channelId > 0) && ($this->_filterId > 0);
+        return ($this->_channelId ?? 0 > 0) && ($this->_filterId ?? 0 > 0);
     }
 
     // /**
@@ -294,7 +295,7 @@ abstract class FormatterBase extends ModuleBase
         $statement->closeCursor();
         $statement = null;
 
-        $statement = $pdo->prepare("INSERT INTO OutputMessageData(Id, Titel, Teaser, Text, Permalink, Image, Metadata) VALUES(:id, :titel, :teaser, :text, :permalink, :image,  :metadata)");
+        $statement = $pdo->prepare("INSERT INTO OutputMessageData(Id, Titel, Teaser, Text, Permalink, Image, Metadata) VALUES(:id, :titel, :teaser, :text, :permalink, :image, :metadata)");
         $statement->bindValue(":id", $dbId);
         $statement->bindValue(":titel", $Message->getTitel());
         $statement->bindValue(":teaser", $Message->getTeaser());

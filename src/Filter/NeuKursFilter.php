@@ -1,6 +1,7 @@
 <?php
 
 namespace DARCNews\Filter;
+use DARCNews\Core\Logger;
 
 /**
  * Summary of NeuKursFilter
@@ -16,7 +17,7 @@ class NeuKursFilter extends FilterBase
      * @return string   Beschreibung
      */
 
-    public static /*abstactImpl*/ function getDescription(): string
+    public static /*abstactImpl*/function getDescription(): string
     {
         return "ich bin der Filter für neue AFU-Kurse";
     }
@@ -26,7 +27,7 @@ class NeuKursFilter extends FilterBase
      * Da der Filter ein spezifischer Filtert ist, sind keine Vorbedingungen notwendig
      * @return bool Flag, ob der Filter aktiviert werden kann.
      */
-    protected /*abstractImpl*/ function canEnable(): bool
+    protected /*abstractImpl*/function canEnable(): bool
     {
         return true;
     }
@@ -36,14 +37,14 @@ class NeuKursFilter extends FilterBase
      * Prüft, ob die Metadaten die Daten zu einem Kurs enthalten
      * @return int 1 wenn die Nachricht erfolgreich verarbeitet wurde, 0 wenn keine Nachricht zu verarbeiten war
      */
-    protected /*abstractImpl*/ function doStuff(): int
+    protected /*abstractImpl*/function doStuff(): int
     {
         $message = $this->getUnprocessedMessage();
 
         if ($message == null)
             return 0;
 
-        Logger::Info("NeuKursFilter {$this->getName()}: Verarbeite Nachricht {$message->getId()}\n");
+        Logger::Info(static::class . " ({$this->getName()}): Verarbeite Nachricht {$message->getId()}\n");
 
         $Felder = ['Call', 'DOK', 'OV', 'KursArt', 'KursStatus', /* 'KursText' ist schon im normalen Text drin */]; // diese Felder sind obligatorisch
         $result = count(array_intersect($Felder, array_keys($message->getMetadata()))) == count($Felder);

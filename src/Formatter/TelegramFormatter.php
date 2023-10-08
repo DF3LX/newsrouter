@@ -34,6 +34,18 @@ class TelegramFormatter extends FormatterBase
      */
     protected /*abstractImpl*/ function doStuff():int
     {
-        return 0;
+        $message = $this->getUnprocessedMessage();
+
+        if ($message == null)
+            return 0;
+
+        $text = $message->getTextAsText();
+
+        $text = trim($text);
+
+        $message->setText($text);
+
+        $this->setMessageProcessed($message, true);
+        return 1;
     }
 }

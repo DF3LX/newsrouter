@@ -396,7 +396,7 @@ abstract class ModuleBase
 
             if ($SingleRun)
             {
-                Logger::Info("Run wurde mit SingleRun gestartet. Keine Wiederholung des Moduls");
+                Logger::Info("Run wurde mit SingleRun gestartet. Keine Wiederholung des Moduls {$this->getName()}.");
                 break; // ende wenn SingleRun
             }
         }

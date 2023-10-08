@@ -20,10 +20,17 @@ SET row_security = off;
 -- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
 --
 
--- *not* creating schema, since initdb creates it
+CREATE SCHEMA public;
 
 
 ALTER SCHEMA public OWNER TO postgres;
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON SCHEMA public IS 'standard public schema';
+
 
 SET default_tablespace = '';
 
@@ -865,6 +872,26 @@ ALTER TABLE ONLY public.source ALTER COLUMN id SET DEFAULT nextval('public.handl
 
 
 --
+-- Data for Name: _bystate; Type: TABLE DATA; Schema: public; Owner: darcnews
+--
+
+INSERT INTO public._bystate VALUES (0, 'No Match');
+INSERT INTO public._bystate VALUES (-1, 'Error');
+INSERT INTO public._bystate VALUES (1, 'Match/Success');
+INSERT INTO public._bystate VALUES (2, 'CatchUp');
+
+
+--
+-- Data for Name: _messagestate; Type: TABLE DATA; Schema: public; Owner: darcnews
+--
+
+INSERT INTO public._messagestate VALUES (0, 'Neue Nachricht');
+INSERT INTO public._messagestate VALUES (1, 'Nachricht verarbeitet');
+INSERT INTO public._messagestate VALUES (2, 'Nachrichtenbody gelöscht');
+INSERT INTO public._messagestate VALUES (3, 'durch CatchUp abgespeichert');
+INSERT INTO public._messagestate VALUES (-1, 'Fehler bei der Verarbeitung');
+
+--
 -- Name: channel Channel_pkey; Type: CONSTRAINT; Schema: public; Owner: darcnews
 --
 
@@ -894,14 +921,6 @@ ALTER TABLE ONLY public.formatter
 
 ALTER TABLE ONLY public.source
     ADD CONSTRAINT "Handler_pkey" PRIMARY KEY (id);
-
-
---
--- Name: inputmessagedata MessageData_pkey; Type: CONSTRAINT; Schema: public; Owner: darcnews
---
-
-ALTER TABLE ONLY public.inputmessagedata
-    ADD CONSTRAINT "MessageData_pkey" PRIMARY KEY (id);
 
 
 --
@@ -1031,14 +1050,6 @@ ALTER TABLE ONLY public.inputmessage
 
 
 --
--- Name: inputmessagedata MessageData_Id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: darcnews
---
-
-ALTER TABLE ONLY public.inputmessagedata
-    ADD CONSTRAINT "MessageData_Id_fkey" FOREIGN KEY (id) REFERENCES public.inputmessage(id) ON DELETE CASCADE;
-
-
---
 -- Name: outputmessagedata OutputMessageData_Id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: darcnews
 --
 
@@ -1121,3 +1132,4 @@ GRANT ALL ON SCHEMA public TO PUBLIC;
 --
 -- PostgreSQL database dump complete
 --
+

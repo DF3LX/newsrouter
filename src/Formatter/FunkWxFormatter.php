@@ -62,8 +62,9 @@ class FunkWxFormatter extends FormatterBase
     protected /*abstractImpl*/function canEnable(): bool
     {
         // einer von beiden sollte auf 1 gesetzt werden, sonst ist der Formatter sinnlos
-        return (intval($this->getParameter(self::PARAM_KEEPTEXT))
-            + intval($this->getParameter(self::PARAM_KEEPQAM))) > 0;
+        return ((intval($this->getParameter(self::PARAM_KEEPTEXT))
+            + intval($this->getParameter(self::PARAM_KEEPQAM))) > 0)
+            && parent::canEnable();
     }
 
 
@@ -145,7 +146,7 @@ class FunkWxFormatter extends FormatterBase
 
         if ($result == ErrorCodes::AlreadyExists)
         {
-            Logger::Error("Die Meldung mit der ID {$message->getId()} ist bereits vorhanden\n");
+            Logger::Error(static::class . " ({$this->getName()}): Die Meldung mit der ID {$message->getId()} ist bereits vorhanden\n");
             $this->setMessageProcessed($message, false);
             return 1; // wir haben eine Nachricht verarbeitet
         }

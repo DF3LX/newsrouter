@@ -244,7 +244,7 @@ class TwitterFormatter extends FormatterBase
 
         if ($result == ErrorCodes::AlreadyExists)
         {
-            Logger::Error("Die Meldung mit der ID {$message->getId()} ist bereits vorhanden\n");
+            Logger::Error(static::class . " ({$this->getName()}): Die Meldung mit der ID {$message->getId()} ist bereits vorhanden\n");
             $this->setMessageProcessed($message, false);
             return 1; // wir haben eine Nachricht verarbeitet
         }
@@ -344,7 +344,7 @@ class TwitterFormatter extends FormatterBase
             $Text = substr($Text, 0, $maxChar);
             $Text = substr($Text, 0, strrpos($Text, ' ', -1));
             $Text .= "…";
-            Logger::Info("Meldungstext gekürzt auf {$maxChar} Zeichen\n");
+            Logger::Info(static::class . " ({$this->getName()}): Meldungstext gekürzt auf {$maxChar} Zeichen\n");
         }
 
         return $Text;
