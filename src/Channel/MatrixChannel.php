@@ -41,7 +41,7 @@ class MatrixChannel extends ChannelBase
     protected /*abstractImpl*/function doStuff(): int
     {
         $message = $this->getUnprocessedMessage();
-        $text = gettext();
+        $text = gettext($message);
         $msgtype = "m.text";
         $homeserver = "matrix.org";
         $room = "!QcJtRjnvlChOaNGOkc:matrix.org";
