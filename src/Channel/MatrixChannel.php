@@ -42,6 +42,12 @@ class MatrixChannel extends ChannelBase
     {
         $message = $this->getUnprocessedMessage();
         $text = gettext($message);
+
+        if ($text === $message) {
+
+            $translatedText = "Translation not available for: " . $message;
+        }
+
         $msgtype = "m.text";
         $homeserver = "matrix.org";
         $room = "!QcJtRjnvlChOaNGOkc:matrix.org";
