@@ -41,8 +41,8 @@ class MatrixChannel extends ChannelBase
     protected /*abstractImpl*/function doStuff(): int
     {
         $message = $this->getUnprocessedMessage();
-        Logger::Error($message);
         $text = strval($message);
+        Logger::Error($text);
 
         if ($text === $message) {
 
