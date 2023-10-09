@@ -42,7 +42,7 @@ class MatrixChannel extends ChannelBase
     {
         $message = $this->getUnprocessedMessage();
         Logger::Error($message);
-        $text = gettext($message);
+        $text = strval($message);
 
         if ($text === $message) {
 
