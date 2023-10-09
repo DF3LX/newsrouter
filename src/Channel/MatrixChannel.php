@@ -41,11 +41,12 @@ class MatrixChannel extends ChannelBase
     protected /*abstractImpl*/function doStuff(): int
     {
         $message = $this->getUnprocessedMessage();
+        Logger::Error($message);
         $text = gettext($message);
 
         if ($text === $message) {
 
-            $translatedText = "Translation not available for: " . $message;
+            $text = "Translation not available for: " . $message;
         }
 
         $msgtype = "m.text";
