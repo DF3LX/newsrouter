@@ -14,6 +14,10 @@ use DARCNews\Core\Logger;
 class MatrixChannel extends ChannelBase
 {
     /**
+     * Definition der usage relevanten Nachrichten
+     */
+
+    /**
      * Implementierung der abstrakten Basisklassenmethode, die eine genaue Beschreibung des Filters liefert.
      * @return string   Beschreibung
      */
@@ -43,6 +47,29 @@ class MatrixChannel extends ChannelBase
         $room = "!QcJtRjnvlChOaNGOkc:matrix.org";
         $accesstoken = "syt_ZnAtbWFpbA_AMgaqjtFDRcaSBspIiRU_06kNqF";
 
+
+        $data = [
+            "msgtype" => $msgtype,
+            "body" => $text
+        ];
+        $jsonPayload = json_encode($data);
+
+        /*
+         * Vorbereitung der Payload
+         */
+
+        $options = [
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n" .
+                    "Content-Length: " . strlen($jsonPayload) . "\r\n",
+                'content' => $jsonPayload
+            ]
+        ];
+        $context = stream_context_create($options);
+
+
+
         if ($message == null)
             return 0; // 0 Nachrichten verarbeitet
 
@@ -56,7 +83,7 @@ class MatrixChannel extends ChannelBase
 
         try
         {
-            $message->setUniqueId(shell_exec(echo "$text" | curl -XPOST -d "$( jq -Rsc --arg msgtype "$matrixmsg_type" '{$msgtype, body:.}')" "https://$homeserver/_matrix/client/r0/rooms/$room/send/m.room.message?access_token=$accesstoken"));
+            $response = file_get_contents("https://$homeserver/_matrix/client/r0/rooms/$room/send/m.room.message?access_token=$accesstoken", false, $context);
 
             $this->setMessageProcessed($message, true, null);
 
