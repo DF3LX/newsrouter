@@ -16,7 +16,7 @@ class GenericFilter extends FilterBase
      * Implementierung der abstrakten Basisklassenmethode, die eine genaue Beschreibung des Filters liefert.
      * @return string   Beschreibung
      */
-    public static /*abstactImpl*/ function getDescription(): string
+    public static /*abstactImpl*/function getDescription(): string
     {
         return "Der GenericNewsFilter enthält keine Prüfungen. Er leitet eine Nachricht einfach weiter.";
     }
@@ -26,27 +26,27 @@ class GenericFilter extends FilterBase
      * Da der Filter nix macht, kann er immer aktiviert werden
      * @return bool Flag, ob der Filter aktiviert werden kann.
      */
-    protected /*abstractImpl*/ function canEnable(): bool
+    protected /*abstractImpl*/function canEnable(): bool
     {
         return true;
     }
-    
+
     /**
      * Filterspezifische implementierung. Sagt einfach nur "ja"
      * @return int  Anzahl der verarbeiteten Nachrichten
      */
-    protected /*abstractImpl*/ function doStuff(): int
+    protected /*abstractImpl*/function doStuff(): int
     {
         $message = $this->getUnprocessedMessage();
 
         if ($message == null)
             return 0;
 
-        Logger::Info("GenericNewsFilter {$this->getName()}: Verarbeite Nachricht {$message->getId()}\n");
+        Logger::Info(static::class . " ({$this->getName()}): Verarbeite Nachricht {$message->getId()}\n");
 
         // Generischer durchleitfilter ist immer erfolgreich
         $this->setMessageProcessed($message, true);
 
-        return 1;   // eine Nachricht verarbeitet
+        return 1; // eine Nachricht verarbeitet
     }
 }

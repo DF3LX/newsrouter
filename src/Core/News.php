@@ -82,13 +82,13 @@ class News
     {
         $obj = new self();
 
-        $obj->uniqueid = $UniqueId;
-        $obj->createdat = $CreatedAt;
-        $obj->titel = $Titel;
-        $obj->teaser = $Teaser;
-        $obj->text = $Text;
-        $obj->permalink = $Permalink;
-        $obj->image = $Image;
+        $obj->setUniqueId($UniqueId);
+        $obj->created = $CreatedAt;
+        $obj->setTitel($Titel);
+        $obj->setTeaser($Teaser);
+        $obj->setText($Text);
+        $obj->setPermalink($Permalink);
+        $obj->setImage($Image);
         $obj->metadata = $Metadata;
 
         return $obj;
@@ -132,7 +132,7 @@ class News
     /**
      * @return string
      */
-    public function getUniqueId(): string
+    public function getUniqueId(): ?string
     {
         return $this->uniqueid;
     }
@@ -167,8 +167,13 @@ class News
      * @param string $titel 
      * @return self
      */
-    public function setTitel(string $Titel): self
+    public function setTitel(?string $Titel): self
     {
+        if (($Titel != null) && !mb_check_encoding($Titel, 'UTF-8'))
+        {
+            Logger::Debug("News: Konvertiere Titel nach UTF-8: " . $Titel);
+            $Titel = mb_convert_encoding($Titel, 'UTF-8');
+        }
         $this->titel = $Titel;
         return $this;
     }
@@ -185,12 +190,25 @@ class News
      * @param string $teaser 
      * @return self
      */
-    public function setTeaser(string $Teaser): self
+    public function setTeaser(?string $Teaser): self
     {
+        if (($Teaser != null) && !mb_check_encoding($Teaser, 'UTF-8'))
+        {
+            Logger::Debug("News: Konvertiere Teaser nach UTF-8: " . $Teaser);
+            $Teaser = mb_convert_encoding($Teaser, 'UTF-8');
+        }
         $this->teaser = $Teaser;
         return $this;
     }
 
+    /**
+     * Summary of hasTeaser
+     * @return bool
+     */
+    public function hasTeaser(): bool
+    {
+        return !empty($this->teaser);
+    }
     /**
      * @return string
      */
@@ -199,12 +217,45 @@ class News
         return $this->text;
     }
 
+    public function getTextAsText(): string
+    {
+        $dom = $this->getTextasDOM();
+        $this->CleanTable($dom);
+
+        return $dom->textContent;
+    }
+
+    public function getTextAsHTML(): string
+    {
+        $dom = $this->getTextasDOM();
+        $xp = new \DOMXPath($dom);
+
+        $body = $xp->query("//body")[0]; // Uns interessiert nur das html ab Body. Da es kein "innerHTML" gibt, müssen wir alle childs einzeln speichern
+        $html = ""; // init für append
+        foreach ($body->childNodes as $child)
+            $html .= $dom->saveHTML($child);
+
+        return $html;
+    }
+
+    public function getTextasDOM(): \DOMDocument
+    {
+        $dom = new \DOMDocument();
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $this->text); // in der DB steht UTF-8  Text
+
+        return $dom;
+    }
     /**
      * @param string $Text 
      * @return self
      */
     public function setText(string $Text): self
     {
+        if (($Text != null) && !mb_check_encoding($Text, 'UTF-8'))
+        {
+            Logger::Debug("News: Konvertiere Text nach UTF-8: " . $Text);
+            $Text = mb_convert_encoding($Text, 'UTF-8');
+        }
         $this->text = $Text;
         return $this;
     }
@@ -235,6 +286,13 @@ class News
         return $this->image;
     }
 
+    public function getImageData() : string
+    {
+        $data = stream_get_contents($this->image);
+        fseek($this->image, 0);
+        return $data;
+    }
+
     /**
      * @param mixed $Image 
      * @return self
@@ -258,7 +316,7 @@ class News
         return $this->metadata ?? [];
     }
 
-    public function getMetadataString() : string
+    public function getMetadataString(): string
     {
         return json_encode($this->getMetadata());
     }
@@ -293,7 +351,7 @@ class News
 
     /* Tools und Helper-Funktionen */
 
-    public function getMimeType() : string
+    public function getMimeType(): string
     {
         if (empty($this->image))
             return "";
@@ -301,19 +359,19 @@ class News
         $check = stream_get_contents($this->image, 4);
         fseek($this->image, 0); // Unbedingt wieder zurückspulen
 
-        if ( $check == "\xff\xd8\xff\xE0")
-        return "image/jpeg";
+        if ($check == "\xff\xd8\xff\xE0")
+            return "image/jpeg";
 
-        if ( $check == "\x89\x50\x4E\x47")
-        return 'image/png';
+        if ($check == "\x89\x50\x4E\x47")
+            return 'image/png';
 
-        if ( $check == "\x47\x49\x46\x38")
-        return 'image/gif';
+        if ($check == "\x47\x49\x46\x38")
+            return 'image/gif';
 
-        if (substr( $check, 0, 2) == "\x42\4d")
-        return 'image/bitmap';
+        if (substr($check, 0, 2) == "\x42\4d")
+            return 'image/bitmap';
 
-        return 'application/octet-stream';  // generic binary
+        return 'application/octet-stream'; // generic binary
     }
 
     public function getExtension(): string
@@ -327,5 +385,32 @@ class News
             '' => "",
             default => ".bin",
         };
+    }
+
+    private static function CleanTable(\DOMDocument &$Dom): void
+    {
+        $q = new \DOMXPath($Dom);
+
+        // Lösche leere Text-Knoten innerhalb der Table-Struktur
+        // textContent gibt die sonst nämlich aus :-(
+        foreach ($q->query("//table//text()") as $node)
+        {
+            if (empty(trim($node->nodeValue)))
+            {
+                $node->parentNode->removeChild($node);
+            }
+        }
+
+        // Füge Zeilenumbruch an Zellen-Wert an
+        foreach ($q->query("//td|th") as $td)
+        {
+            $td->nodeValue = trim($td->nodeValue) . "\n";
+
+            // Wenn letzte Zelle, dann füge noch einen Zeilenumbruch hinzu
+            if ($td->nextElementSibling == null)
+            {
+                $td->nodeValue .= "\n";
+            }
+        }
     }
 }

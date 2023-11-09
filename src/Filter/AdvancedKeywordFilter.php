@@ -155,7 +155,7 @@ class AdvancedKeywordFilter extends FilterBase
             list($operator, $keyword) = explode(':', $operator_keyword);
             $keyword = trim($keyword);  // aufräumen
 
-            Logger::Info("Verarbeite Operator {$operator} für Keyword '{$keyword}'");
+            Logger::Info(static::class . " ({$this->getName()}): Verarbeite Operator {$operator} für Keyword '{$keyword}'");
 
             $operators = [];
             //            Gruppe 1       Gruppe 2      Gruppe 3      Gruppe 4
@@ -180,7 +180,7 @@ class AdvancedKeywordFilter extends FilterBase
             if ($operators[4] == '~')
                 $boolean = !(bool)$boolean;
 
-            Logger::Debug("Ergebnis der Prüfung (und ggf. ~) ist: {$boolean}");
+            Logger::Debug("Ergebnis der Prüfung (und ggf. ~) ist: ". ($boolean ? "TRUE":"FALSE"));
 
             switch ($operators[1])
             {
@@ -195,7 +195,7 @@ class AdvancedKeywordFilter extends FilterBase
                     break;
 
                 case '#':
-                    Logger::Debug("True-Joker ist {$boolean}");
+                    Logger::Debug("True-Joker ist: ". ($boolean ? "TRUE":"FALSE"));
                     if ($boolean)
                     {
                         $logicalResult = true;
@@ -204,7 +204,7 @@ class AdvancedKeywordFilter extends FilterBase
                     break;
 
                 case '^':
-                    Logger::Debug("False-Joker ist {$boolean}");
+                    Logger::Debug("False-Joker ist ". ($boolean ? "TRUE":"FALSE"));
                     if ($boolean)
                     {
                         $logicalResult = false;
@@ -214,11 +214,11 @@ class AdvancedKeywordFilter extends FilterBase
             }            
         }    
 
-        Logger::Debug("Gesamtergebnis ist {$logicalResult}");
+        Logger::Debug("Gesamtergebnis ist ". ($logicalResult ? "TRUE":"FALSE"));
 
-        if ($logicalResult == null)
+        if (is_null($logicalResult))
         {
-            Logger::Warn("Gesamtergebnis ist NULL, bitte Log auf Fehler überprüfen!");
+            Logger::Warn(static::class . " ({$this->getName()}): Gesamtergebnis ist NULL, bitte Log auf Fehler überprüfen!");
             $logicalResult = false;
         }
 

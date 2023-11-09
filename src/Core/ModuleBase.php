@@ -229,13 +229,38 @@ abstract class ModuleBase
         foreach (array_keys($this->parameters) as $key)
         {
             if (strncasecmp($key, $Parameter, strlen($Parameter)) == 0)
-                return $this->parameters[$key]['Value'];
+            {
+                if ($this->parameters[$key]['Encrypt'] ?? false)
+                {
+                    require "config.php";
+                    $c = base64_decode($this->parameters[$key]['Value']);
+                    $ivlen = openssl_cipher_iv_length($cipher = "aes-128-cbc");
+                    $iv = substr($c, 0, $ivlen);
+                    $hmac = substr($c, $ivlen, $sha2len = 32);
+                    $ciphertext_raw = substr($c, $ivlen + $sha2len);
+                    $original_plaintext = openssl_decrypt($ciphertext_raw, $cipher, base64_decode($CryptKey), $options = OPENSSL_RAW_DATA, $iv);
+                    $calcmac = hash_hmac('sha256', $ciphertext_raw, base64_decode($HashKey),  true);
+
+                    unset($CryptKey);
+                    unset($HashKey);
+
+                    if (hash_equals($hmac, $calcmac)) // Rechenzeitangriff-sicherer Vergleich
+                    {
+                        return unserialize($original_plaintext);
+                    }
+                    return ""; // Crypto Error
+                }
+                else
+                    return $this->parameters[$key]['Value'];
+            }
         }
 
         // Wenns den Parameter nicht gibt, ausnahmsweise keinen ErrorCode, sondern leer. 
         // In dem Parameter könnte ja alles drin sein.
-        return "";  
+        return "";
     }
+
+
 
     /**
      * Setzt einen parameter auf den angegebenen Wert
@@ -266,28 +291,45 @@ abstract class ModuleBase
         // Multivalue parameter verarbeiten
         if ($this->parameters[$Parameter]['MultiValue'] ?? false)
         {
+            $parameterValue = $this->getParameter($Parameter) ?? array();
+
             switch ($Value[0])
             {
                 case '-': // entfernen
-                    if (($key = array_search(trim(substr($Value, 1)), $this->parameters[$Parameter]['Value'])) !== false)
-                        unset($this->parameters[$Parameter]['Value'][$key]);
+                    if (($key = array_search(trim(substr($Value, 1)), $parameterValue)) !== false)
+                        unset($parameterValue[$key]);
                     break;
 
                 case '+': // hinzufügen
                     $Value = trim(substr($Value, 1)); // entferne das +
 
-                    $this->parameters[$Parameter]['Value'][] = $Value;
+                    $parameterValue[] = $Value;
                     break;
 
                 case '!': // leeren
-                    $this->parameters[$Parameter]['Value'] = [];
+                    $parameterValue = [];
                     break;
 
                 default:
                     return ErrorCodes::MultiValueNoOperator;
             }
+
+            $Value = $parameterValue; // Das wollen wir ja eigentlich schreiben
         }
-        else // Single values sind einfach
+
+        if ($this->parameters[$Parameter]['Encrypt'] ?? false)
+        {
+            require "config.php";
+            $ivlen = openssl_cipher_iv_length($cipher = "aes-128-cbc");
+            $iv = openssl_random_pseudo_bytes($ivlen);
+            $ciphertext_raw = openssl_encrypt(serialize($Value), $cipher, base64_decode($CryptKey), $options = OPENSSL_RAW_DATA, $iv);
+            $hmac = hash_hmac('sha256', $ciphertext_raw, base64_decode($HashKey), true);
+            $ciphertext = base64_encode($iv . $hmac . $ciphertext_raw);
+            $this->parameters[$Parameter]['Value'] = $ciphertext;
+            unset($CryptKey);
+            unset($HashKey);
+        }
+        else
             $this->parameters[$Parameter]['Value'] = $Value;
 
         $this->save();
@@ -354,7 +396,7 @@ abstract class ModuleBase
 
             if ($SingleRun)
             {
-                Logger::Info("Run wurde mit SingleRun gestartet. Keine Wiederholung des Moduls");
+                Logger::Info("Run wurde mit SingleRun gestartet. Keine Wiederholung des Moduls {$this->getName()}.");
                 break; // ende wenn SingleRun
             }
         }

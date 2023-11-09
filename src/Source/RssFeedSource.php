@@ -17,16 +17,16 @@ class RssFeedSource extends SourceBase
 {
     /** @var string PARAM_MAXCHARACTERS Konstante für Zugriff auf Parameters-Array */
     private const PARAM_PUBLISHWAITSEC = 'PublishWaitSec';
-   
+
     /** @var string PARAM_MAXCHARACTERS Konstante für Zugriff auf Parameters-Array */
     private const PARAM_URL = 'Url';
-   
+
     /** @var string PARAM_MAXCHARACTERS Konstante für Zugriff auf Parameters-Array */
     private const PARAM_LASTPUBDATE = 'LastPubDate';
-   
+
     /** @var array $parameters Array mit den Modulspezifischen Parametern */
     protected array $parameters = [
-       self::PARAM_PUBLISHWAITSEC  => [
+        self::PARAM_PUBLISHWAITSEC => [
             'Value' => 600,
             'Description' => "Mindestalter in Sekunden, bevor eine neue Nachricht verarbeitet wird",
             'MultiValue' => false
@@ -47,8 +47,8 @@ class RssFeedSource extends SourceBase
     /**
      * Implementierung der abstrakten Basisklassenmethode, die eine genaue Beschreibung des Filters liefert.
      * @return string   Beschreibung
-    */
-    public static /*abstactImpl*/ function getDescription(): string
+     */
+    public static /*abstactImpl*/function getDescription(): string
     {
         return "Die RSSFeedSource kann den RSS-Feed der DARC-Webseite auslesen";
     }
@@ -58,7 +58,7 @@ class RssFeedSource extends SourceBase
      * Prüft, ob der Filter aktiviert werden kann.
      * @return bool Flag, ob der Filter aktiviert werden kann.
      */
-    protected /*abstractImpl*/ function canEnable(): bool
+    protected /*abstractImpl*/function canEnable(): bool
     {
         return (!empty($this->getParameter(self::PARAM_URL)));
     }
@@ -67,7 +67,7 @@ class RssFeedSource extends SourceBase
      * Summary of doStuff
      * @return int
      */
-    protected /*abstractImpl*/ function doStuff(): int
+    protected /*abstractImpl*/function doStuff(): int
     {
         $feed = new \SimpleXMLElement($this->getParameter(self::PARAM_URL), 0, TRUE);
 
@@ -84,11 +84,11 @@ class RssFeedSource extends SourceBase
 
         if (!($feedDate > $lastPubDate))
         {
-            Logger::Info("Feed Date ist nicht neuer als beim letzten Mal");
-            //     return 0; // 0 neue Nachrichten
+            Logger::Info(static::class . " ({$this->getName()}): Feed Date ist nicht neuer als beim letzten Mal");
+                return 0; // 0 neue Nachrichten
         }
 
-        Logger::Info("Feed ist neu");
+        Logger::Info(static::class . " ({$this->getName()}): Feed ist neu");
 
         $this->setParameter(self::PARAM_LASTPUBDATE, $feedDate->getTimestamp()); // set last pub date and Save
 
@@ -111,43 +111,53 @@ class RssFeedSource extends SourceBase
 
         foreach ($items as $item)
         {
-            Logger::Info("Verarbeite ein Item");
+            Logger::Debug("Verarbeite ein Item");
             $pubDate = \DateTime::createFromFormat(\DateTime::RFC1123, $item->pubDate);
 
             if (($checkDate->getTimestamp() - $pubDate->getTimestamp()) < $this->getParameter(self::PARAM_PUBLISHWAITSEC))
             {
-                Logger::Info("Newsmeldung {$item->guid} ist noch keine 10 Minuten alt.\n");
+                Logger::Info(static::class . " ({$this->getName()}): Newsmeldung {$item->guid} ist noch keine 10 Minuten alt.\n");
                 continue; // Skip Items die noch keine 10 Minuten alt sind.
             }
 
             if ($this->isMessageKnown($item->guid))
             {
-                Logger::Info("Newsmeldung {$item->guid} ist bereits abgespeichert");
+                Logger::Info(static::class . " ({$this->getName()}): Newsmeldung {$item->guid} ist bereits abgespeichert");
                 continue;
             }
 
+            // Nachrichtencontent verarbeiten
+            // Knoten content:encoded abfragen und zum String casten um an den Inhalt zu kommen. 
+            $content = (string) $item->children('content', true)->encoded;
+
+            // Der DARC-RSS Feed gibt gruseliges, eingerücktes HTML. Hier ein einfacher Versuch, das sauber zu bekommen
+            $content = preg_replace('/\s+/', " ", $content);
+
+            // das halbwegs saubere HTML können wir in einen DOM packen um mit XPath Queries arbeiten zu können.
+            // nen SimpleXMLElement wär mir ja lieber, aber der DOM kommt besser mit nicht-well-formed HTML klar
+
+            $dom = new \DOMDocument();
+            $dom->loadHTML('<?xml encoding="utf-8" ?>' . $content); // ist ja UTF8, was da ankommt
+            $xp = new \DOMXPath($dom);
+
+            // Teaserbild suchen
+            $imageUrl = $xp->evaluate("string(//img[1]/@src)"); // Attribut src vom ersten gefundenen IMG tag
+
+            // Beim DARC-RSS ist das Teaserbild in einem DIV. Das kann jetzt weg
+            $div = $xp->query("//div[@class='news-img-wrap']")[0];
+            $div?->parentNode?->removeChild($div);
+
+            $body = $xp->query("//body")[0]; // Uns interessiert nur das html ab Body. Da es kein "innerHTML" gibt, müssen wir alle childs einzeln speichern
+            $meldungHtml = ""; // init für append
+            foreach ($body->childNodes as $child)
+                $meldungHtml .= $dom->saveHTML($child);
+
             $imageStream = null; // declare variable
-            $mimetype = null;
-            Logger::Debug("Versuche an ein Teaserbild heran zu kommen");
-            $message = (string) $item->children('content', true)->encoded;
-            $message = trim($message);
-            if (substr($message, 0, 27) == '<div class="news-img-wrap">')
+            if (filter_var($imageUrl, FILTER_VALIDATE_URL))
             {
-                Logger::Debug("Teaserbild gefunden");
-                $divEndPos = strpos($message, '</div>') + 6;
-                $imageLine = substr($message, 0, $divEndPos);
-                $message = trim(substr($message, $divEndPos));
-
-                $imageUrl = (string) ((new \SimpleXMLElement($imageLine))->img->attributes()['src']);
-
-                Logger::Debug("Teaserbild url: $imageUrl");
-                if (filter_var($imageUrl, FILTER_VALIDATE_URL))
-                {
-                    Logger::Debug("URL ist gültig");
-                    $imageStream = file_get_contents($imageUrl);
-
-                    Logger::Debug("Länge vom Image " . strlen($imageStream));
-                }
+                Logger::Info(static::class . " ({$this->getName()}): Teaserbild in Meldung {$item->guid} gefunden. Versuche Download von {$imageUrl}");
+                $imageStream = file_get_contents($imageUrl);
+                Logger::Debug("Länge vom Image " . strlen($imageStream));
             }
 
             $result = $this->saveMessage(
@@ -156,15 +166,16 @@ class RssFeedSource extends SourceBase
                     $pubDate,
                     $item->title,
                     null,
-                    $message,
+                    $meldungHtml,
                     $item->link,
                     $imageStream,
-                    null)
+                    ['ImageUrl' => $imageUrl] // wer weiss, ob man die noch mal braucht
+                )
             );
 
             if ($result == ErrorCodes::AlreadyExists)
             {
-                Logger::Error("Die Nachricht {$item->guid} ist bereits vorhanden\n");
+                Logger::Error(static::class . " ({$this->getName()}): Die Nachricht {$item->guid} ist bereits vorhanden\n");
                 continue;
             }
             $itemCount++;
