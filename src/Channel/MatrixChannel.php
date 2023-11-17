@@ -5,34 +5,71 @@ use DARCNews\Core\ErrorCodes;
 use DARCNews\Core\Logger;
 
 /**
- * Summary of MatrixChannel
- * 
+ * Summary of MastodonChannel
+ *
  * @author Gerrit, DH8GHH <dh8ghh@darc.de>
+ * @author Felix, DO6FP <do6fp@darc.de>
  * @copyright 2023 Gerrit Herzig, DH8GHH für den Deutschen Amateur-Radio-Club e.V.
  * @license https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 class MatrixChannel extends ChannelBase
 {
-    /**
-     * Definition der usage relevanten Nachrichten
-     */
+    /** @var string PARAM_BOTUSERNAME  Konstante für Zugriff auf Parameters-Array */
+    private const PARAM_BOTUSER = 'BotUsername';
 
+    /** @var string PARAM_TOKEN  Konstante für Zugriff auf Parameters-Array */
+    private const PARAM_TOKEN = 'Token';
+
+    /** @var string PARAM_SERVERBASEURL  Konstante für Zugriff auf Parameters-Array */
+    private const PARAM_SERVERBASEURL = 'ServerBaseUrl';
+
+    /** @var string PARAM_ROOM  Konstante für Zugriff auf Parameters-Array*/
+    private const PARAM_ROOM = 'RoomId';
+
+    /** @var array $parameters Array mit den Modulspezifischen Parametern */
+    protected array $parameters = [
+        self::PARAM_BOTUSER => [
+            'Description' => "Der BotUsername, nach dem Schema @foo:bar.baz",
+            'MultiValue' => false,
+            'Value' => "@fp-mail:matrix.org",
+            'Encrypt' => true
+        ],
+        self::PARAM_TOKEN => [
+            'Description' => "Der Token, wie er vom MatrixClient für diesen Account ausgegeben wurde",
+            'MultiValue' => false,
+            'Value' => "",
+            'Encrypt' => true
+        ],
+        self::PARAM_SERVERBASEURL => [
+            'Description' => "Name des Homeservers mit https:// davor",
+            'MultiValue' => false,
+            'Value' => "https://matrix.darc.de",
+        ],
+        self::PARAM_ROOM => [
+            'Description' => "Raumadresse nach dem Schema !foo:bar.buz",
+            'MultiValue' => false,
+            'Value' => "!QcJtRjnvlChOaNGOkc:matrix.org",
+        ],
+    ];
     /**
-     * Implementierung der abstrakten Basisklassenmethode, die eine genaue Beschreibung des Filters liefert.
+     * Implementierung der abstrakten Basisklassenmethode, die eine genaue Beschreibung des Channels liefert.
      * @return string   Beschreibung
      */
-    public static /*abstactImpl*/ function getDescription(): string
+    public static /*abstactImpl*/function getDescription(): string
     {
-        return "Ich bin der Matrix Channel";
+        return "Dieser Channel kann Texte und Bilder in einem Matrix Raum posten, vorausgesetzt, ein API Key wurde übergeben";
     }
 
     /**
-     * Prüft, ob der Filter aktiviert werden kann.
-     * @return bool Flag, ob der Filter aktiviert werden kann.
+     * Prüft, ob der Channel aktiviert werden kann.
+     * @return bool Flag, ob der Channel aktiviert werden kann.
      */
-    protected /*abstractImpl*/ function canEnable(): bool
+    protected /*abstractImpl*/function canEnable(): bool
     {
-        return true;
+        return !empty($this->getParameter(self::PARAM_TOKEN))
+            && !empty($this->getParameter(self::PARAM_SERVERBASEURL))
+            && !empty($this->getParameter(self::PARAM_ROOM))
+            && !empty($this->getParameter(self::PARAM_BOTUSER));
     }
 
     /**
@@ -48,6 +85,39 @@ class MatrixChannel extends ChannelBase
 
         try
         {
+            // post Status
+            $options = array(
+                'http' => array(
+                    'protocol_version' => '1.1',
+                    'method' => 'POST',
+                    'header' => array(
+                        'Content-Type: application/json; charset=utf-8',
+                        'Accept: application/json',
+                        'Authorization: Bearer ' . self::PARAM_TOKEN,
+                        'User-Agent: DARC NewsRouter MatrixChannel v1.0',
+                    ),
+                    'content' => json_encode(
+                        [
+                            'msgtype' => 'm.text',
+                            'body' => $message->getText(),
+                        ]
+                    )
+                )
+            );
+
+            $url = $this->GetParameter(self::PARAM_SERVERBASEURL) . '/_matrix/client/r0/rooms/' . self::PARAM_ROOM . '/send/m.room.message';
+            $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
+
+            if ($resultText === false)
+            {
+                throw new \ErrorException("Fehler beim Aufruf der Homeserver-API: {$http_response_header[0]}");
+            }
+
+            $result = json_decode($resultText, true); // decode JSON
+            $uniqueId = $result['event_id'];
+
+            // versand eines eventuell vorhndenen Bildes
+
             $mediaId = null;
 
             // Wenn ein Bild vorhanden ist, muss zuerst das Bild hochgeladen werden
@@ -64,7 +134,7 @@ class MatrixChannel extends ChannelBase
                             'Accept: application/json',
                             'User-Agent: DARC NewsRouter MastodonChannel v1.0',
                             "Authorization: Bearer " . $this->getParameter(self::PARAM_TOKEN),
-                            "Content-Type: multipart/form-data; boundary=$delimiter",
+                            "Content-Type: image/png",
                         ),
                         'method' => 'POST',
                         'content' => "--$delimiter\r\n"
@@ -77,51 +147,21 @@ class MatrixChannel extends ChannelBase
                     ),
                 );
 
-                $url = $this->GetParameter(self::PARAM_SERVERBASEURL) . '/api/v2/media';
+                $url = $this->GetParameter(self::PARAM_SERVERBASEURL) . '/_matrix/media/v3/upload';
                 $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
 
                 if ($resultText === false)
                 {
-                    throw new \ErrorException("Fehler beim Aufruf der Mastodon-API für Bildupload: {$http_response_header[0]}");
+                    throw new \ErrorException("Fehler beim Aufruf der Homeserver-API für Bildupload: {$http_response_header[0]}");
                 }
 
                 $result = json_decode($resultText, true); // decode JSON
                 $mediaId = $result['id'];
             }
 
-            // post Status
-            $options = array(
-                'http' => array(
-                    'protocol_version' => '1.1',
-                    'method' => 'POST',
-                    'header' => array(
-                        'Content-Type: application/json; charset=utf-8',
-                        'Accept: application/json',
-                        'User-Agent: DARC NewsRouter MastodonChannel v1.0',
-                    ),
-                    'content' => json_encode(
-                        [
-                            'media_ids' => [$mediaId],
-                            'spoiler_text' => $message->getTitel() . ($message->hasTeaser() ? ("\n" . $message->getTeaser() . "\n") : null),
-                            'status' => $message->getText(),
-                            'visibility' => 'public',
-                            'language' => 'de'
-                        ]
-                    )
-                )
-            );
-
-            $url = $this->GetParameter(self::PARAM_SERVERBASEURL) . '/api/v1/statuses';
-            $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
-
-            if ($resultText === false)
-            {
-                throw new \ErrorException("Fehler beim Aufruf der Telegram-API: {$http_response_header[0]}");
-            }
 
 
-            $result = json_decode($resultText, true); // decode JSON
-            $uniqueId = $result['id'];
+
             $this->setMessageProcessed($message, true, $uniqueId);
 
             return 1; // eine Nachricht verarbeitet
@@ -135,77 +175,5 @@ class MatrixChannel extends ChannelBase
             return ErrorCodes::Operation_Failed;
         }
     }
-    /**
-     * Summary of doStuffold
-     * @return int
-     */
-    protected /*abstractImpl*/function doStuffold(): int
-    {
-
-        $message = $this->getUnprocessedMessage();
-        $text = strval($message->getText());
-        Logger::Error($text);
-
-        if ($text === $message) {
-
-            $text = "Translation not available for: " . $message;
-        }
-
-        $msgtype = "m.text";
-        $homeserver = "matrix.org";
-        $room = "!QcJtRjnvlChOaNGOkc:matrix.org";
-        $accesstoken = "syt_ZnAtbWFpbA_AMgaqjtFDRcaSBspIiRU_06kNqF";
-
-
-        $data = [
-            "msgtype" => $msgtype,
-            "body" => $text
-        ];
-        $jsonPayload = json_encode($data);
-
-        /*
-         * Vorbereitung der Payload
-         */
-
-        $options = [
-            'http' => [
-                'method' => 'POST',
-                'header' => "Content-Type: application/json\r\n" .
-                    "Content-Length: " . strlen($jsonPayload) . "\r\n",
-                'content' => $jsonPayload
-            ]
-        ];
-        $context = stream_context_create($options);
-
-
-
-        if ($message == null)
-            return 0; // 0 Nachrichten verarbeitet
-
-        Logger::Info("Channel {$this->getName()} verarbeitet Nachricht {$message->getId()}");
-        if ($this->isCatchUp()) // bei Catchup machen wir mit der Nachricht einfach mal nix
-        {
-            $this->setMessageProcessed($message, true, null);
-            return 1; // eine Nachricht "verarbeitet"
-        }
-
-
-        try
-        {
-            $response = file_get_contents("https://$homeserver/_matrix/client/r0/rooms/$room/send/m.room.message?access_token=$accesstoken", false, $context);
-
-            $this->setMessageProcessed($message, true, null);
-
-            return 1; // eine Nachricht verarbeitet
-        }
-        catch (\Exception $ex)
-        {
-            $this->setMessageProcessed($message, false, null);
-            Logger::Error("Fehler beim Versand von Nachricht {$message->getId()} über Channel {$this->getId()}\n");
-            Logger::Error($ex->getMessage());
-
-            return ErrorCodes::Operation_Failed;
-        }
-
-    }
 }
+
