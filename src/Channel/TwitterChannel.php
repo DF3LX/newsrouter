@@ -1,11 +1,14 @@
 <?php
 
 namespace DARCNews\Channel;
+use DARCNews\Core\ErrorCodes;
+use DARCNews\Core\Logger;
 
 /**
  * Summary of TwitterChannel
  * 
  * @author Gerrit, DH8GHH <dh8ghh@darc.de>
+ * @author Felix, DF3LX <df3lx@darc.de>
  * @copyright 2023 Gerrit Herzig, DH8GHH für den Deutschen Amateur-Radio-Club e.V.
  * @license https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
 */
@@ -29,6 +32,8 @@ class TwitterChannel extends ChannelBase
     /** @var string PARAM_CONSUMERSECRET Konstante für Zugriff auf Parameters-Array */
     private const PARAM_CONSUMERSECRET = 'consumer_secret';
 
+    /** @var string PARAM_SERVERBASEURL Konstante für Zugriff auf Parameters-Array */
+    private const PARAM_SERVERBASEURL = 'endpoint_url';
 
     /** @var array $parameters Array mit den Modulspezifischen Parametern */
     protected array $parameters =
@@ -88,7 +93,8 @@ class TwitterChannel extends ChannelBase
         return !empty($this->getParameter(self::PARAM_OAUTHTOKEN))
             && !empty($this->getParameter(self::PARAM_OAUTHSECRET))
             && !empty($this->getParameter(self::PARAM_CONSUMERKEY))
-            && !empty($this->getParameter(self::PARAM_CONSUMERSECRET));
+            && !empty($this->getParameter(self::PARAM_CONSUMERSECRET))
+            && !empty($this->getParameter(self::PARAM_SERVERBASEURL));
     }
     /**
      * Summary of doStuff
@@ -96,6 +102,116 @@ class TwitterChannel extends ChannelBase
      */
     protected /*abstractImpl*/ function doStuff() : int
     {
-        return 0;
+        $message = $this->getUnprocessedMessage();
+
+        if ($message == null)
+            return 0; // 0 Nachrichten verarbeitet
+
+        try  {
+            // Hochladen möglicher Bilder
+
+            if($message->hasImage())
+            {
+                $filename = basename(parse_url($message->getMetadata()['imageUrl'] ?? 'unknown.jpg', PHP_URL_PATH));
+                $mimetype = $message->getMimeType();
+
+                // Upload initalisieren
+
+                $options = array(
+                    'http' => array(
+                        'protocol_version' => '1.1',
+                        'method' => 'POST',
+                        'header' => array(
+                            'Content-Type: application/json; charset=utf-8',
+                            'Accept: application/json',
+                            'Authorization: Bearer ' . self::PARAM_OAUTHTOKEN,
+                            'User-Agent: DARC NewsRouter TwitterChannel v1.0',
+                        ),
+                        'content' => json_encode(
+                            [
+                                'command' => 'INIT',
+                                'total_bytes' => fstat($message->getImage())['size'],
+                                'media_type' => $mimetype,
+                            ]
+                        )
+                    )
+                );
+
+                $url = 'https://upload.twitter.com/1.1/media/upload.json';
+                $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
+
+                if ($resultText === false)
+                {
+                    throw new \ErrorException("Fehler beim Initialisieren des Bildupload: {$http_response_header[0]}");
+                }
+
+                $result = json_decode($resultText, true); // decode JSON
+                $mediaId = $result['media_id'];
+
+                // Eigentliches Bild uploaden
+
+                $options = array(
+                    'http' => array(
+                        'protocol_version' => '1.1',
+                        'method' => 'POST',
+                        'header' => array(
+                            'Content-Type: application/json; charset=utf-8',
+                            'Accept: application/json',
+                            'Authorization: Bearer ' . self::PARAM_OAUTHTOKEN,
+                            'User-Agent: DARC NewsRouter TwitterChannel v1.0',
+                        ),
+                        'content' => json_encode(
+                            [
+                                #TODO
+                            ]
+                        )
+                    )
+                );
+
+            }
+            
+            // post Status
+            $options = array(
+                'http' => array(
+                    'protocol_version' => '1.1',
+                    'method' => 'POST',
+                    'header' => array(
+                        'Content-Type: application/json; charset=utf-8',
+                        'Accept: application/json',
+                        'Authorization: Bearer ' . self::PARAM_OAUTHTOKEN,
+                        'User-Agent: DARC NewsRouter TwitterChannel v1.0',
+                    ),
+                    'content' => json_encode(
+                        [
+                            'text' => $message->getText(),
+                        ]
+                    )
+                )
+            );
+
+            $url = $this->GetParameter(self::PARAM_SERVERBASEURL) . '/2/tweets' ;
+            $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
+
+            if ($resultText === false)
+            {
+                throw new \ErrorException("Fehler beim Aufruf der Twitter-API: {$http_response_header[0]}");
+            }
+
+            $result = json_decode($resultText, true); // decode JSON
+            $uniqueId = $result['event_id'];
+
+
+            $this->setMessageProcessed($message, true, $uniqueId);
+
+            return 1; // eine Nachricht verarbeitet
+        }
+        catch (\Exception $ex)
+        {
+            $this->setMessageProcessed($message, false, null);
+            Logger::Error(static::class . " ({$this->getName()}): Fehler beim Versand von Nachricht {$message->getId()} über Channel {$this->getId()}\n");
+            Logger::Error($ex->getMessage());
+
+            return ErrorCodes::Operation_Failed;
+        }
     }
 }
