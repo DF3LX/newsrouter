@@ -112,26 +112,20 @@ class TwitterChannel extends ChannelBase
 
             if($message->hasImage())
             {
-                $filename = basename(parse_url($message->getMetadata()['imageUrl'] ?? 'unknown.jpg', PHP_URL_PATH));
-                $mimetype = $message->getMimeType();
-
-                // Upload initalisieren
 
                 $options = array(
                     'http' => array(
                         'protocol_version' => '1.1',
                         'method' => 'POST',
                         'header' => array(
-                            'Content-Type: application/json; charset=utf-8',
+                            'Content-Type: multipart/form-data; charset=utf-8',
                             'Accept: application/json',
                             'Authorization: Bearer ' . self::PARAM_OAUTHTOKEN,
                             'User-Agent: DARC NewsRouter TwitterChannel v1.0',
                         ),
                         'content' => json_encode(
                             [
-                                'command' => 'INIT',
-                                'total_bytes' => fstat($message->getImage())['size'],
-                                'media_type' => $mimetype,
+                                'media_data' => base64_encode($message->getImage()),
                             ]
                         )
                     )
@@ -142,13 +136,11 @@ class TwitterChannel extends ChannelBase
 
                 if ($resultText === false)
                 {
-                    throw new \ErrorException("Fehler beim Initialisieren des Bildupload: {$http_response_header[0]}");
+                    throw new \ErrorException("Fehler beim Hochladen des Bildes: {$http_response_header[0]}");
                 }
 
                 $result = json_decode($resultText, true); // decode JSON
                 $mediaId = $result['media_id'];
-
-                // Eigentliches Bild uploaden
 
                 $options = array(
                     'http' => array(
@@ -162,16 +154,16 @@ class TwitterChannel extends ChannelBase
                         ),
                         'content' => json_encode(
                             [
-                                #TODO
+                                'text' => $message->getText(),
+                                'media_ids' => $mediaId,
                             ]
                         )
                     )
                 );
-
             }
-            
-            // post Status
-            $options = array(
+            else
+            {
+                $options = array(
                 'http' => array(
                     'protocol_version' => '1.1',
                     'method' => 'POST',
@@ -188,6 +180,7 @@ class TwitterChannel extends ChannelBase
                     )
                 )
             );
+            }
 
             $url = $this->GetParameter(self::PARAM_SERVERBASEURL) . '/2/tweets' ;
             $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
