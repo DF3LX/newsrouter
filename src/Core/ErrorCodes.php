@@ -26,7 +26,7 @@ class ErrorCodes
     /** @var int  ValueNotFound Angegebener Wert konnte nicht aufgelöst werden */
     public const ValueNotFound = -4;
 
-    /** @var int  Operation_Failed Irgnedwas geht nicht */
+    /** @var int  Operation_Failed Irgendwas geht nicht */
     public const Operation_Failed = -5;
  
     /** @var int  NotEnoughArguments Nicht genügend Argumente oder Parameter-Angaben */
