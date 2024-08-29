@@ -3,7 +3,7 @@
 namespace DARCNews\Core;
 
 /**
- * Modulbae ist die Basisklasse für alle Modulimplementierungen
+ * Modulbase ist die Basisklasse für alle Modulimplementierungen
  * Üblicherweise gibt es noch eine Modultyp-spezifische Basisklasse
  * @see SourceBase
  * @see FilterBase

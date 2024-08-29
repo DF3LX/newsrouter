@@ -104,6 +104,40 @@ class TelegramChannel extends ChannelBase
                 throw new \ErrorException("Fehler beim Aufruf der Telegram-API: {$http_response_header[0]}");
             }
 
+            if ($message->hasImage() && $message->getMimeType() == 'image/jpeg')
+            {
+                $url = 'https://api.telegram.org/bot' . $this->getParameter(self::PARAM_TOKEN) . "/sendPhoto";
+                $photo = $message->getImage();
+                $tmph = tmpfile();
+                fwrite($tmph, $photo);
+                $tmpf = stream_get_meta_data($tmph)['uri'];
+
+                $options = array(
+                    'http' => array(
+                        'protocol_version' => '1.1',
+                        'method' => 'POST',
+                        'header' => array(
+                            'Content-Type: multipart/form-data; charset=utf-8',
+                            'Accept: application/json',
+                            'User-Agent: DARC NewsRouter TelegramChannel v1.0',
+                        ),
+                        'content' => json_encode(
+                            [
+                                'chat_id' => intval($this->getParameter(self::PARAM_CHATID)),
+                                'photo' => curl_file_create($tmpf),
+                            ]
+                        )
+                    )
+                );
+
+                $resultText = file_get_contents($url, false, stream_context_create($options)); // send https request
+
+                if ($resultText === false)
+                {
+                    throw new \ErrorException("Fehler beim Aufruf der Telegram-API: {$http_response_header[0]}");
+                }
+            }
+
             //Logger::Debug($resultText);
             $result = json_decode($resultText, true); // decode JSON
             $uniqueId = $result['result']['message_id'];
